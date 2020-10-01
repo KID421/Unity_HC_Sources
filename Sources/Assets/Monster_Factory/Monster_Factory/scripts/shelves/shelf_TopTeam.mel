@@ -1,0 +1,35 @@
+global proc shelf_TopTeam () {
+    global string $gBuffStr;
+    global string $gBuffStr0;
+    global string $gBuffStr1;
+
+
+    shelfButton
+        -enableCommandRepeat 1
+        -enable 1
+        -width 35
+        -height 35
+        -manage 1
+        -visible 1
+        -preventOverride 0
+        -annotation "TopTeam monster tool" 
+        -enableBackground 0
+        -align "center" 
+        -label "TopTeam monster tool" 
+        -labelOffset 0
+        -font "plainLabelFont" 
+        -imageOverlayLabel "TTMT" 
+        -overlayLabelColor 0.8 0.8 0.8 
+        -overlayLabelBackColor 0 0 0 0.2 
+        -image "commandButton.png" 
+        -image1 "commandButton.png" 
+        -style "iconOnly" 
+        -marginWidth 1
+        -marginHeight 1
+        -command "source \"TT_monsters.mel\";\nTT_monsters;" 
+        -sourceType "mel" 
+        -commandRepeatable 1
+        -flat 1
+    ;
+
+} 

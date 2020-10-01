@@ -1,0 +1,564 @@
+global proc TT_monsters(){
+	string $win = "monster_win";
+	string $monsters[] = {"DevilDog" , "Gargola" , "Hexapod"};
+	string $parts[] = {"ear", "eyes" , "fin" , "hair" , "horn" , "tail" , "wing"};
+	if (`window -exists $win`)
+		deleteUI $win;
+	
+	$title = "Top Team Monster Assembling Tool";
+	window -w 360 -title $title $win;
+	
+	string $MAIN_CL = `columnLayout -adj 1`;
+	
+		string $proj_FL = `frameLayout -mw 10 -mh 10 -lv 1 -bs "etchedIn" "proj_FL"`;
+			string $proj_CL = `columnLayout "proj_CL"`;
+				string $lable = "Monster Project Folder: ";
+				string $proj_OV_name = "monster_location_ov";
+				string $text;
+				string $placeholderText;
+				if (`optionVar -exists $proj_OV_name`){
+					$text = `optionVar -q $proj_OV_name`;
+					$placeholderText = "";
+				} else {
+					$text = "";
+					$placeholderText = "Monster's folder location";
+				}
+				string $proj_TFBG = `textFieldButtonGrp -l $lable 
+													-pht $placeholderText 
+													-text $text -bl "..." 
+													"proj_TFBG"`;
+
+			setParent..;
+			string $setProj_RL = `rowLayout -numberOfColumns  2 -cw2 160 240 "setProj_RL"`;
+				string $setProj_BTN = `button -w 160 -label "Set Monster Project" "setProj_BTN"`;
+				
+				string $monster_state = `text -label "Monsters" "monster_state"`;
+			setParent..;
+		setParent..;
+		monster_status; // check if found monsters
+		
+		string $proj_loc = `workspace -q -rd`;
+		string $mosnter_loc = $proj_loc + "assets/monsters/body/";
+
+		string $monster_FL = `frameLayout -mw 10 -mh 10 -lv 1 -bs "etchedIn" "monster_FL"`;
+			string $monster_CL = `columnLayout "monster_CL"`;
+				string $monster_RL = `rowLayout -numberOfColumns  2 -cw2 160 240 "monster_RL"`;
+					string $monsters_OM = `optionMenu -label "Monster: " "monsters_OM"`;
+						for ($monster in $monsters)
+							menuItem -label $monster;
+					string $getMonster = `button -label "Summon Monster" -c "check_summon_monster();enableParts();" "getMonster"`;
+				setParent..;
+				
+				string $monsterParts_CL = `columnLayout -adj 1 "monsterParts_CL"`;
+					string $monsterParts_TL = `tabLayout -w 360 -innerMarginWidth 5 -innerMarginHeight 5`;
+					
+					string $tab_name;
+					string $tsl_name;
+					string $cmd;
+					for ($part in $parts)
+					{
+						$tab_name = capitalizeString($part);
+						string $tab = `columnLayout $tab_name`;
+							rowLayout -numberOfColumns  2 -columnWidth2 240 160 -rowAttach 2 "top" 0 ;
+								paneLayout;
+									$tsl_name = $part + "_TSL";
+									textScrollList -numberOfRows 8 -allowMultiSelection 0 $tsl_name;
+								setParent..;
+								columnLayout;
+									$cmd = "getPart(\"" + $part + "\")";
+									button -label "Get" -w 90 -c $cmd;
+									$cmd = "removePart(\"" + $part + "\",0)";
+									button -label "Remove Select" -w 90 -c $cmd;
+									
+									$cmd = "removePart(\"" + $part + "\",1)";
+									
+									button -label "Remove All" -w 90 -c $cmd;
+								setParent..;
+							setParent..;
+						setParent..;
+					}
+					
+					setParent..;
+				setParent..;
+			setParent..;
+			
+				string $MIRROR_CL = `columnLayout -adj 1 "MIRROR_CL"`;
+					string $mirror_FL = `frameLayout -mw 5 -mh 5 -bs "etchedIn" -lv 1 "mirror_FL"`;
+						string $ctrl_CL = `columnLayout`;
+							gridLayout -numberOfColumns 2 -cellWidthHeight 120 30;
+								button -label  "Mirror Pose" -c "mirror_act";
+							setParent..;
+						setParent..;
+					setParent..;
+				setParent..;
+				
+				button -bgc .7 .3 .2 -label "Get It Ready" -c "forGameReady";
+				
+		setParent..;
+		
+		
+	setParent..;
+	
+	
+	
+	
+	
+	
+	/////////////////////////////////
+	// CONTROLS
+	frameLayout -e -l "Project Folder" -labelIndent 10 "proj_FL";
+	frameLayout -e -l "Monster Tool" -labelIndent 10 "monster_FL";
+	frameLayout -e -l "Tools" -labelIndent 10 "mirror_FL";
+	
+	
+	
+	textFieldButtonGrp -e -bc "proj_loc" "proj_TFBG";
+	button -e -c "setProj_loc;monster_status;" "setProj_BTN";
+	
+	rowLayout -e -cw2 160 180 
+				-columnAttach 1 "both" 0
+				-columnAttach 2 "left" 10
+				"setProj_RL";
+				
+	optionMenu -e -w 160 "monsters_OM";
+	for ($monster in $monsters)
+	{
+		if (`namespace -exists $monster`)
+			optionMenu -e -v $monster "monsters_OM";
+	}
+	
+
+	
+	string $part_list[0];
+	string $append_name;
+	for ($part in $parts)
+	{
+		$tsl_name = $part + "_TSL";
+		$part_list = getPart_list($part);
+		for ($part_obj in $part_list)
+		{
+			$append_name = `substitute ".mb" $part_obj ""`;
+			$append_name = capitalizeString($append_name);
+			textScrollList -e -append $append_name $tsl_name;
+			if (size ($part_list) > 0)
+				textScrollList -e -sii 1 $tsl_name;
+		}
+	}
+
+	
+	
+	enableParts();
+	
+	showWindow;
+
+}
+
+
+global proc proj_loc(){
+	string $proj_OV_name = "monster_location_ov";
+	string $proj_locs[] = `fileDialog2 
+								-cap "Please choose Monsters' Project Folder" 
+								-fm 3 
+								-okc "Select" -cc "Cancel"`;
+	textFieldButtonGrp -e -text $proj_locs[0] "proj_TFBG";
+	
+}
+
+global proc setProj_loc(){
+	string $proj_loc = `textFieldButtonGrp -q -text "proj_TFBG"`;
+	string $proj_OV_name = "monster_location_ov";
+	if ($proj_loc != "")
+	{
+		setProject $proj_loc;
+		optionVar -stringValue $proj_OV_name $proj_loc;
+		string $msg = "Set monster project folder at:\n" + $proj_loc;
+		$msg += "\n";
+		print $msg;
+	}
+}
+
+global proc monster_status(){
+	string $proj_loc = `workspace -q -rd`;
+	string $monster_loc = $proj_loc + "assets/monsters/";
+	//print $monster_loc;
+	string $msg;
+	vector $color;
+	if (`filetest -d $monster_loc`)
+	{
+		$color = <<.3 , 0.7 , .3>>;
+		$msg = "Monster's folder found in current project folder!";
+	} else {
+		$color = <<.5 , 0 , 0>>;
+		$msg = "Can not find monsters!";
+	}
+	text -e -l $msg -backgroundColor ($color.x) ($color.y) ($color.z)  "monster_state";
+	//textFieldButtonGrp -e "proj_TFBG";
+}
+
+global proc check_summon_monster(){
+	
+	int $monster_count = monster_exists();
+	if ($monster_count == 0)
+		summon_monster;
+	else
+	{
+	string $msg = "Will remove current monster! Are you sure?";
+	string $result = `confirmDialog -title "Confirm" -message $msg
+									-button "Yes" -button "No" -defaultButton "Yes"
+									-cancelButton "No" -dismissString "No"`;
+	if ($result == "Yes"){
+		string $refs[] = `ls -type "reference"`;
+		string $fullPath;
+		for ($ref in $refs)
+		{
+			$fullPath = `referenceQuery -filename $ref`;
+			file -rr $fullPath;
+		}
+		summon_monster;
+	}
+	
+	}
+}
+
+global proc enableParts()
+{
+	int $monster_count = monster_exists();
+	if ($monster_count == 0)
+		columnLayout -e -enable 0 "monsterParts_CL";
+	else if ($monster_count > 0)
+		columnLayout -e -enable 1 "monsterParts_CL";
+
+}
+
+
+global proc summon_monster()
+{
+	string $proj_loc = `workspace -q -rd`;
+	string $monster_loc = $proj_loc + "assets/monsters/body/";
+	string $monster = `optionMenu -q -value "monsters_OM"`;
+	string $monster_fullPath = $monster_loc + $monster + ".mb";
+	
+	file -r -type "mayaBinary"  -ignoreVersion -gn  -gl -mergeNamespacesOnClash false -namespace $monster -options "v=0;" $monster_fullPath;
+	
+	/*
+	select -r -all;
+	string $objs[] = `ls -tr -sl`;
+	string $grp = ($monster + "_grp");
+	group -empty -w -n $grp;
+	for ($obj in $objs){
+		if (!`objectType -isType "reference" $obj`)
+			parent $obj $grp;
+	}*/
+	
+}
+
+global proc int monster_exists(){
+	string $monsters[] = {"DevilDog" , "Gargola" , "Hexapod"};
+	
+	int $monster_count = 0;
+	for ($monster in $monsters)
+	{
+		if (`namespace -exists $monster`)
+			$monster_count += 1;
+	}
+	return $monster_count;
+}
+
+global proc string[] getPart_list(string $part){
+	string $part_list[];
+	string $proj_loc = `workspace -q -rd`;
+	string $monsterPart_loc = $proj_loc + "assets/monsters/"+ $part + "/";
+	$part_list = `getFileList -folder $monsterPart_loc -filespec "*.mb"`;
+	
+	
+	return $part_list;
+}
+
+global proc checkPartExists(string $part){
+	string $objs[] = `ls -type "reference" ("*" + (tolower($part)) + "*")`;
+}
+
+
+global proc getPart(string $part){
+	string $proj_loc = `workspace -q -rd`;
+	$tsl_name = $part + "_TSL";
+	string $objs[] = `textScrollList -q -selectItem $tsl_name`;
+	string $monsterPart_loc = $proj_loc + "assets/monsters/"+ $part + "/";
+	string $file = $monsterPart_loc + (tolower($objs[0])) + ".mb";
+	string $monster = `optionMenu -q -value "monsters_OM"`;
+	string $msg;
+	string $ns = (tolower($objs[0]));
+	if ($objs[0] == "")
+	{
+		$msg = "Please select " + $part;
+		warning $msg;
+	} else {
+		if(`namespace -exists (":" + $monster)`)
+		{
+			file -r -type "mayaBinary" -ignoreVersion -mergeNamespacesOnClash false -namespace $ns -options "v=0;" $file;
+			set_texture($part);
+			snapCtrl($part);
+			
+		}
+	}
+}
+
+global proc removePart(string $part, int $all)
+{
+	string $proj_loc = `workspace -q -rd`;
+	$tsl_name = $part + "_TSL";
+	string $objs[] = `textScrollList -q -ai $tsl_name`;
+
+	string $monster = `optionMenu -q -value "monsters_OM"`;
+	string $msg, $obj;
+	string $refs[];
+	string $ctrls[];
+	if ($all == 1)
+	{
+		string $references[] = `file -q -r`;
+		for ($obj in $objs)
+		{
+			for ($reference in $references)
+			{
+				if (`gmatch $reference ("*" + (tolower($obj)) + "*")`)
+					file -rr $reference;
+			}
+		}
+		string $temp = ($part + "*jnt_anim_tt_grp");
+		$ctrls = `ls -tr $temp`;
+		if(size($ctrls)>0)
+			delete $ctrls;
+	} else {
+		$objs = `textScrollList -q -selectItem $tsl_name`;
+		string $monsterPart_loc = $proj_loc + "assets/monsters/"+ $part + "/";
+		string $file = $monsterPart_loc + (tolower($objs[0])) + ".mb";
+		$obj = tolower($objs[0]);
+		$refs = `ls -type "reference"`;
+		$ctrls = `ls ("*" + $obj + "*jnt_anim_tt_grp")`;
+		for ($ref in $refs)
+		{
+			$file = `referenceQuery -f $ref`;
+			if (`gmatch $file ("*" + (tolower($objs[0])) + "*")`)
+				file -rr $file;
+		}
+		if(size($ctrls)>0)
+			delete $ctrls;
+		
+	}
+}
+
+global proc snapCtrl(string $part)
+{
+	string $sides[] = {"_l", "_r" , ""};
+	string $pos_jnt, $off_jnt;
+	string $ctrls[];
+	string $prefix;
+	string $bfr_const[];
+	string $const[], $scale_const[];
+	string $monster = `optionMenu -q -value "monsters_OM"`;
+	$tsl_name = $part + "_TSL";
+	string $objs[] = `textScrollList -q -selectItem $tsl_name`;
+	string $obj = tolower($objs[0]);
+	string $monst_ctrlJnt;
+	int $jnt_exists;
+	string $grp = ($monster + "_grp");
+	string $trs[];
+	string $temp_side;
+	for ($side in $sides)
+	{
+		$monst_ctrlJnt = $monster + ":monster" + $side + "_" +$part  +"_off_jnt";
+		$jnt_exists = `objExists $monst_ctrlJnt`;
+		if ($jnt_exists == 1)
+		{
+			$pos_jnt = $obj + ":" + $obj + $side + "_pos_jnt";
+			$off_jnt = $obj + ":" + $obj + $side + "_off_jnt";
+			if (`objExists $pos_jnt`){
+				$prefix = $obj + $side + "_pos_jnt";
+				$ctrls = createCtrl($prefix);
+				$bfr_const = `parentConstraint $off_jnt $ctrls[0]`;
+				delete $bfr_const;
+				parent $pos_jnt $ctrls[1];
+				parentConstraint $monst_ctrlJnt $ctrls[0];
+				/*
+				select -r -all;
+				$trs = `ls -tr -sl`;
+				for ($tr in $trs)
+				{
+					if ($tr != $grp)
+						parent $tr $grp;
+				}*/
+			}
+		}/* else if ($jnt_exists == 0)
+		{
+			if ($side == "")
+				$temp_side = "hair";
+			else
+				$temp_side = "ear";
+				
+			$monst_ctrlJnt = $monster + ":monster" + $side + "_" + $temp_side  +"_off_jnt";	
+			$pos_jnt = $obj + ":" + $obj + $side + "_pos_jnt";
+			$off_jnt = $obj + ":" + $obj + $side + "_off_jnt";
+			$prefix = $obj + $side + "_pos_jnt";
+			$ctrls = createCtrl($prefix);
+			$bfr_const = `parentConstraint $off_jnt $ctrls[0]`;
+			delete $bfr_const;
+			parent $pos_jnt $ctrls[1];
+			parentConstraint $monst_ctrlJnt $ctrls[0];
+		
+		}*/
+	}
+}
+
+global proc string[] createCtrl(string $prefix)
+{
+	string $ctrls[2];
+	string $ctrlName = $prefix + "_anim_tt";
+	string $grpName = $ctrlName + "_grp";
+	circle -c 0 0 0 -nr 0 0 1 -sw 360 -r 5 -d 3 -ut 0 -tol 0.01 -s 8 -ch 1 -n $ctrlName;
+	group -n $grpName $ctrlName;
+	$ctrls[0] = $grpName;
+	$ctrls[1] = $ctrlName;
+	return $ctrls;
+}
+
+global proc set_texture(string $part)
+{
+	string $image_suffix[] = {"Diffuse", "Reflection", "Normal"};
+	string $file_suffix[] = {"Color", "Specular", "Normal"};
+	string $proj_folder = `workspace -q -rd`;
+	string $monster_texture_folder = $proj_folder + "/sourceimages/monsters/";
+	string $monster = `optionMenu -q -value "monsters_OM"`;
+	$tsl_name = $part + "_TSL";
+	string $objs[] = `textScrollList -q -selectItem $tsl_name`;
+	string $obj = tolower($objs[0]);
+	string $image_prefix = $monster+ "_" + $obj + "_mtl";
+	string $fileNode_prefix = $obj + ":file_" + $obj;
+	int $count = 3;
+	string $suffix;
+
+	for ($i = 0; $i < $count; $i++)
+	{
+		if ($image_suffix[$i] == "Reflection")
+			$suffix = "tif";
+		else
+			$suffix = "png";
+		setAttr -type "string" ($fileNode_prefix + "_" + $file_suffix[$i] + ".fileTextureName ") ($monster_texture_folder + $image_prefix + "_" + $image_suffix[$i] + "." + $suffix);
+	}
+
+}
+
+
+
+global proc mirror_act(){
+	string $ctrl_crvs[] = `ls -sl`;
+	string $msg;
+	string $otherside;
+	vector $pos,$rot, $scale;
+	for ($ctrl_crv in $ctrl_crvs){
+		if (`gmatch $ctrl_crv "*pos_jnt_anim_tt"`){
+			if (`gmatch $ctrl_crv "*_l_*"`){
+				$otherside = `substitute "_l_" $ctrl_crv "_r_"`;
+			} else if (`gmatch $ctrl_crv "*_r_*"`) {
+				$otherside = `substitute "_r_" $ctrl_crv "_l_"`;
+			}
+			
+			if (`objExists $otherside`)
+			{
+				$pos = `getAttr ($ctrl_crv + ".translate")`;
+				$rot = `getAttr ($ctrl_crv + ".rotate")`;
+				$scale = `getAttr ($ctrl_crv + ".scale")`;
+				setAttr ($otherside + ".tx") ($pos.x * -1);
+				setAttr ($otherside + ".ty") ($pos.y * -1);
+				setAttr ($otherside + ".tz") ($pos.z * -1);
+				setAttr ($otherside + ".rx") ($rot.x);
+				setAttr ($otherside + ".ry") ($rot.y);
+				setAttr ($otherside + ".rz") ($rot.z);
+				setAttr ($otherside + ".sx") ($scale.x);
+				setAttr ($otherside + ".sy") ($scale.y);
+				setAttr ($otherside + ".sz") ($scale.z);
+			}
+		} else {
+			$msg = $ctrl_crv + " is not a body part curve!\nPlease select one body part curve!\n";
+			warning $msg;
+		}
+	}
+	
+}
+
+global proc forGameReady(){
+	string $sides[] = {"_l", "_r" , ""};
+	string $monsters[] = {"DevilDog" , "Gargola" , "Hexapod"};
+	string $parts[] = {"ear", "eyes" , "fin" , "hair" , "horn" , "tail" , "wing"};
+	string $monster;
+	
+	string $refs[] = `file -q -r`;
+	for ($ref in $refs)
+		file -importReference $ref;
+	
+	string $nss[] = `namespaceInfo -listOnlyNamespaces`;
+	for($ns in $nss)
+	{
+		for ($monst in $monsters)
+		{
+			if ($ns == $monst)
+				$monster = $ns;
+		}
+		
+		
+		if ($ns != "UI" && $ns != "shared")
+		    namespace -mnp -removeNamespace $ns;
+	}
+	
+	string $monst_jnt;
+	string $side_jnt;
+	string $jnts[] = `ls -type "joint" "*pos_jnt"`;
+	for($jnt in $jnts){
+		if(!`gmatch $jnt "monster_*"`)
+		{
+			for ($part in $parts){
+				for ($side in $sides){
+					$side_jnt = $part + "*" + $side + "_*";
+					//print ($side_jnt + "\n");
+					if (`gmatch $jnt ("*" + $side_jnt + "*")`){
+						$monst_jnt = "monster" + $side + "_" + $part +"_off_jnt";
+						if (`objExists $monst_jnt`)
+							parent $jnt $monst_jnt;
+					}
+				}
+			}
+		}
+	}
+	string $anims[] = `ls "*_anim_tt_grp"`;
+	if (size($anims) > 0)
+		delete $anims;
+
+	string $grp = $monster + "_grp";
+	string $geo_grp = $monster + "_geo_grp";
+	group -empty -w -n $grp;
+	group -empty -w -n $geo_grp;
+	parent $geo_grp $grp;
+	string $geos[] = `ls "*_geo"`;
+	
+	string $bfr[0];
+	int $ind = 0;
+	for ($geo in $geos)
+	{
+		$bfr[$ind] = getRoot($geo);
+		$ind += 1;
+	}
+	$bfr = stringArrayRemoveDuplicates($bfr);
+	//print $bfr;
+	for ($root in $bfr)
+		parent $root $geo_grp;
+	string $locs[] = `ls "*_loc"`;
+	for ($loc in $locs)
+		parent $loc $grp;
+}
+
+global proc string getRoot(string $obj)
+{
+	string $list[] = `ls -l $obj`;
+	string $bfr[];
+	int $size = `tokenize $list[0] "|" $bfr`;
+	return $bfr[0];
+}
